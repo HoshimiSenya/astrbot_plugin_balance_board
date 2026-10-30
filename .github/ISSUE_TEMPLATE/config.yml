@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: AstrBot 文档
+    url: https://docs.astrbot.app/
+    about: 插件安装、配置和平台适配相关问题
+  - name: 各平台 API Key 控制台
+    url: https://platform.deepseek.com/api_keys
+    about: DeepSeek 控制台；智谱 AI、魔搭 ModelScope 的入口见 README
