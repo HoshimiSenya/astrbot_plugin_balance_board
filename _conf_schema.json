@@ -1,0 +1,52 @@
+{
+  "cache_ttl": {
+    "description": "查询缓存时间（秒）",
+    "type": "int",
+    "default": 60,
+    "slider": {
+      "min": 0,
+      "max": 600,
+      "step": 10
+    },
+    "hint": "同一账号在缓存时间内重复查询会直接使用上次结果，避免频繁请求平台接口；设为 0 可关闭缓存。插件会自动读取 AstrBot「模型供应商」中的 API Key，无需在此填写。"
+  },
+  "user_cooldown": {
+    "description": "单用户查询冷却（秒）",
+    "type": "int",
+    "default": 5,
+    "slider": {
+      "min": 0,
+      "max": 60,
+      "step": 1
+    },
+    "hint": "防止连续刷屏，仅管理员可触发查询。设为 0 可关闭冷却。"
+  },
+  "request_timeout": {
+    "description": "请求超时（秒）",
+    "type": "int",
+    "default": 10,
+    "slider": {
+      "min": 3,
+      "max": 60,
+      "step": 1
+    },
+    "hint": "单个平台接口的超时时间。QQ 官方机器人对回复时限较敏感，网络较差时建议适当调整。"
+  },
+  "proxy": {
+    "description": "HTTP 代理",
+    "type": "string",
+    "default": "",
+    "hint": "可选，例如 http://127.0.0.1:7890。访问国际站或服务器网络受限时可填写。"
+  },
+  "max_retries": {
+    "description": "失败重试次数",
+    "type": "int",
+    "default": 2,
+    "slider": {
+      "min": 0,
+      "max": 5,
+      "step": 1
+    },
+    "hint": "仅对超时、429 和 5xx 错误重试；鉴权失败不会重试。"
+  }
+}

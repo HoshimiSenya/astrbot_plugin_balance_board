@@ -1,0 +1,96 @@
+name: Bug report
+description: 报告一个可复现的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！提交前请先搜索已有 issue。
+
+        > ⚠️ 请勿在 issue 中粘贴完整的 API Key。日志和截图中的 Key 请先打码。
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: 插件版本
+      description: 见 metadata.yaml 或插件管理页面
+      placeholder: v1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: astrbot-version
+    attributes:
+      label: AstrBot 版本
+      placeholder: v4.x.x
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 消息平台
+      options:
+        - aiocqhttp (OneBot v11)
+        - qq_official (QQ 官方机器人)
+        - 其他 / 不确定
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: 涉及的平台
+      options:
+        - DeepSeek
+        - 智谱 AI
+        - 魔搭 ModelScope
+        - 多个平台 / 图片渲染
+        - 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请写出触发问题的完整命令或操作步骤
+      placeholder: |
+        1. ...
+        2. 发送 /余额
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 请附上报错文字或截图；记得给 Key 打码
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: 请粘贴 AstrBot 控制台中的相关日志（Key 请打码）
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 确认
+      options:
+        - label: 我已经搜索过已有 issue
+          required: true
+        - label: 我已确认日志/截图中不包含完整 API Key
+          required: true
