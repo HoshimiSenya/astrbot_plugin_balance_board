@@ -1,2 +1,2 @@
 aiohttp>=3.7,<4
-pillow>=9.0
+pillow>=13.0.0
