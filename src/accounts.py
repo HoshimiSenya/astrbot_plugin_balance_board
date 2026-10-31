@@ -55,9 +55,11 @@ def balance_base_url(api_base: Any, spec: ProviderSpec) -> str:
     ``/api/paas/v4``; the balance endpoints live at the host root. ModelScope's
     balance API only exists on the community site, so it always uses the
     canonical host even when the chat endpoint points at ``api-inference``.
+    PPIO's older chat host (``api.ppinfra.com``) also differs from its billing
+    host, so the canonical ``api.ppio.com`` host is always used.
     """
 
-    if spec.id == "modelscope":
+    if spec.id in {"modelscope", "ppio"}:
         return spec.default_base_url
 
     raw = str(api_base or "").strip()

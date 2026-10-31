@@ -5,6 +5,24 @@
 本格式基于 [保持更新日志](https://keepachangelog.com/zh-CN/1.1.0/)（Keep a Changelog），
 且本项目遵循 [语义化版本规范](https://semver.org/lang/zh-CN)（Semantic Versioning）。
 
+## 1.1.0 - 2026-10-31
+
+### 新增
+
+- 新增 Kimi（Moonshot）余额支持：读取 `GET /v1/users/me/balance`，自动兼容国内站与国际站主机。
+- 新增 MiniMax Token Plan 额度支持：读取 `GET /v1/token_plan/remains`，显示 5 小时与周剩余百分比；仅在供应商类型 / ID 明确为 Token Plan 时识别，普通 MiniMax 按量付费供应商会被跳过。
+- 新增 Ollama Cloud 余额支持：读取 `GET /api/balance`，支持 `included.balance_usd` + `purchased.balance_usd` 余额以及旧版 `session` / `weekly` 百分比额度；本地 Ollama 地址会被跳过。
+- 新增 302.AI 余额支持：读取 `GET /dashboard/balance`。
+- 新增 PPIO 余额支持：读取 `GET /openapi/v1/billing/balance/detail`，自动将 1/10000 元换算为人民币。
+- 新增额度窗口 UI：当平台同时返回 5 小时与周剩余额度时，在账号行下方追加 `5h: 75% · 周: 40%` 汇总行；单窗口直接显示百分比。
+- 新增针对新平台解析、识别、地址归一化和渲染的单元测试。
+
+### 变更
+
+- 扩展 `BalanceSnapshot` / `ParsedBalance`，支持百分比额度、指标文案与附加汇总行，同时保持原有“平台 + 余额”布局。
+- 更新 README、README_EN 与元数据，补充新平台配置、识别规则、字段说明和常见问题。
+- 版本号更新至 1.1.0。
+
 ## 1.0.0 - 2026-10-30
 
 ### 新增

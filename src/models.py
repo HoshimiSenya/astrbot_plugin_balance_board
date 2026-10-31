@@ -18,6 +18,9 @@ class BalanceSnapshot:
     available: Decimal
     currency: str
     metric: str
+    value_text: str = ""
+    metric_text: str = ""
+    secondary: str = ""
     fetched_at: float = field(default_factory=time.time)
 
 

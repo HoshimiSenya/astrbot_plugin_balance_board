@@ -1,8 +1,8 @@
 name: astrbot_plugin_balance_board
 display_name: 余额看板
-short_desc: 自动读取 AstrBot 模型供应商的 API Key，一键查询 DeepSeek、智谱、魔搭的余额并渲染成清晰图片。
+short_desc: 自动读取 AstrBot 模型供应商的 API Key，一键查询多个平台余额并渲染成清晰图片。
 desc: 自动读取 AstrBot 模型供应商的 API Key，查询所有已配置平台的余额并渲染成图片。
-version: v1.0.0
+version: v1.1.0
 author: 星见千夜
 repo: https://github.com/HoshimiSenya/astrbot_plugin_balance_board
 astrbot_version: ">=4.5.0,<5"
@@ -16,4 +16,9 @@ tags:
   - deepseek
   - 智谱
   - modelscope
+  - kimi
+  - minimax
+  - ollama
+  - 302ai
+  - ppio
   - 图片

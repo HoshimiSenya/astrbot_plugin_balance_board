@@ -7,7 +7,7 @@
 **Reads AstrBot's model providers automatically — every balance in one clean image**
 
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A54.5-5865f2?style=flat-square)](https://github.com/AstrBotDevs/AstrBot)
-[![Version](https://img.shields.io/badge/version-1.0.0-22c55e?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-22c55e?style=flat-square)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat-square)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-3b82f6?style=flat-square)](LICENSE)
 
@@ -17,7 +17,7 @@
 
 </div>
 
-> Unofficial community plugin, not affiliated with DeepSeek, Zhipu AI or ModelScope.  
+> Unofficial community plugin, not affiliated with DeepSeek, Zhipu AI, ModelScope, Kimi, MiniMax, Ollama, 302.AI or PPIO.  
 > The plugin only reads balance data; it never checks in, tops up or spends any credits.
 
 ## Features
@@ -26,7 +26,8 @@
 - 🧾 **All providers at once**: every supported provider configured in AstrBot is queried with one `/余额` command
 - 🔁 **Automatic de-duplication**: provider entries sharing the same API key and balance endpoint are queried once and shown once
 - 🖼 **Image output**: results are rendered as a clean PNG card — the big text shows the platform's Chinese name, the small line shows its English name and balance endpoint
-- 💎 **Provider-aware units**: DeepSeek and Zhipu AI show account balance, ModelScope shows available magicubes
+- 💎 **Provider-aware units**: DeepSeek, Zhipu AI, Kimi, 302.AI, PPIO and Ollama Cloud show account balance, ModelScope shows available magicubes, and MiniMax Token Plan shows 5-hour / weekly remaining quota
+- 📊 **Quota windows**: MiniMax Token Plan and legacy Ollama Cloud plans show 5-hour / weekly remaining percentages, with a summary line when both windows exist
 - 🛡 **Safe matching**: keys are only sent when the base URL points at a supported provider's official host; custom OpenAI-compatible proxies are skipped
 - ⚡ **Concurrency, cache and retries**: providers are queried concurrently, successes are cached with a TTL, and timeouts / 429 / 5xx are retried with backoff
 - 🧠 **Privacy first**: keys are only sent to their own provider and are masked in messages and logs
@@ -40,6 +41,11 @@
 | [DeepSeek](https://platform.deepseek.com) | Account balance (`¥`) | `GET /user/balance` |
 | [Zhipu AI](https://open.bigmodel.cn) | Account balance (`¥`) | `GET /api/biz/account/query-customer-account-report` |
 | [ModelScope](https://modelscope.cn) | Available magicubes (魔粒) | `GET /openapi/v1/magicubes/balance` |
+| [Kimi](https://platform.moonshot.cn) | Account balance (CN site `¥` / global site `$`) | `GET /v1/users/me/balance` |
+| [MiniMax Token Plan](https://platform.minimaxi.com) | 5h / weekly remaining quota (`%`) | `GET /v1/token_plan/remains` |
+| [Ollama Cloud](https://ollama.com) | Account balance (`$`) / legacy 5h and weekly quota | `GET /api/balance` |
+| [302.AI](https://302.ai) | Account balance (`$`) | `GET /dashboard/balance` |
+| [PPIO](https://ppio.com) | Account balance (`¥`) | `GET /openapi/v1/billing/balance/detail` |
 
 | Messaging platform | Adapter | Status |
 |---|---|---|
@@ -72,7 +78,7 @@ Restart AstrBot and enable the plugin.
 The plugin stores no keys. Everything comes from AstrBot's **service providers**:
 
 1. Open the AstrBot admin panel → **Providers** → **Add provider**.
-2. Pick a platform (DeepSeek / Zhipu / ModelScope) or an OpenAI-compatible provider, then enter the API key.
+2. Pick a platform (DeepSeek / Zhipu / ModelScope / Kimi / MiniMax / Ollama / 302.AI / PPIO) or an OpenAI-compatible provider, then enter the API key.
 3. Save and send `/余额` in chat.
 
 | Provider | Console | Notes |
@@ -80,22 +86,34 @@ The plugin stores no keys. Everything comes from AstrBot's **service providers**
 | DeepSeek | <https://platform.deepseek.com/api_keys> | Keys look like `sk-...`; base URL is usually `https://api.deepseek.com` or `.../v1` |
 | Zhipu AI | <https://open.bigmodel.cn/usercenter/apikeys> | Base URL is usually `https://open.bigmodel.cn/api/paas/v4` |
 | ModelScope | <https://modelscope.cn/my/myaccesstoken> | Tokens look like `ms-...`; chat base can be `https://api-inference.modelscope.cn/v1` |
+| Kimi | <https://platform.moonshot.cn/console/api-keys> | Base URL is usually `https://api.moonshot.cn/v1`; the global site uses `https://api.moonshot.ai/v1` |
+| MiniMax Token Plan | <https://platform.minimaxi.com/console/plan> | Only subscription Token Plan keys (`sk-cp-...`) are supported, not pay-as-you-go balance; base URL is usually `https://api.minimaxi.com/anthropic` |
+| Ollama Cloud | <https://ollama.com/settings/keys> | Only the `ollama.com` cloud host is recognized; local `127.0.0.1:11434` is skipped |
+| 302.AI | <https://302.ai> | Base URL is usually `https://api.302.ai/v1` |
+| PPIO | <https://ppio.com> | Base URL can be `https://api.ppinfra.com/v3/openai` or `https://api.ppio.com/openai` |
 
 > ⚠️ Keys are provider-specific. Add one provider per platform and do not paste a key into another provider's entry.
 
 ## Detection rules
 
-The plugin identifies the balance platform from the base URL host:
+The plugin primarily identifies the balance platform from the base URL host:
 
 | Base URL contains | Detected as | Card display |
 |---|---|---|
 | `deepseek.com` | DeepSeek | Big text `DeepSeek`, small line `DeepSeek · endpoint` |
 | `bigmodel.cn` / `zhipuai.cn` | Zhipu AI | Big text `智谱`, small line `Zhipu AI · endpoint` |
 | `modelscope.cn` / `modelscope.ai` | ModelScope | Big text `魔搭`, small line `ModelScope · www.modelscope.cn` |
+| `moonshot.cn` / `moonshot.ai` / `kimi.com` / `kimi.ai` | Kimi | Big text `Kimi`, small line `Kimi / Moonshot · endpoint` |
+| MiniMax Token Plan type/id + `minimax.io` / `minimaxi.com` / `minimax.cn` | MiniMax Token Plan | Big text `MiniMax`, small line `Token Plan · endpoint` |
+| `ollama.com` | Ollama Cloud | Big text `Ollama`, small line `Ollama Cloud · ollama.com` |
+| `302.ai` / `302ai.com` | 302.AI | Big text `302.AI`, small line `302.AI · endpoint` |
+| `ppio.com` / `ppinfra.com` | PPIO | Big text `PPIO`, small line `PPIO · api.ppio.com` |
 
-- When a provider has no base URL, the provider type/id keywords (`deepseek`, `zhipu`, `modelscope`, …) are used as a hint.
+- When a provider has no base URL, the provider type/id keywords (`deepseek`, `zhipu`, `modelscope`, `kimi`, `302ai`, `ppio`, …) are used as a hint.
+- MiniMax is only recognized as Token Plan when the provider type/id explicitly contains `token_plan` / `token-plan`; regular pay-as-you-go MiniMax providers are skipped.
+- Ollama is only recognized on the cloud host `ollama.com`; local Ollama (`127.0.0.1:11434`) has no balance endpoint and is skipped.
 - **Custom OpenAI-compatible proxies** (e.g. `https://proxy.example.com/v1`) are skipped on purpose: their balance endpoint is unknown and sending the key to an official host would be unsafe.
-- Unsupported platforms (OpenAI, Gemini, Ollama, …) are skipped silently and never affect other providers.
+- Unsupported platforms (OpenAI, Gemini, local Ollama, …) are skipped silently and never affect other providers.
 
 ## Commands
 
@@ -112,7 +130,8 @@ The provider list is re-read on every query, so newly added or removed providers
 <div align="center"><img src="docs/preview.png" width="620" alt="Rendered board"></div>
 
 - One row per wallet: the coloured bar marks the provider, the big text is its Chinese name, and the small line shows the English name and balance host.
-- Amounts are right-aligned; ModelScope rows show **available magicubes**, every other row shows **balance**.
+- Amounts are right-aligned; ModelScope rows show **available magicubes**, other money providers show **balance**, and MiniMax Token Plan / legacy Ollama Cloud plans show **5h remaining** or **weekly remaining** percentages.
+- When both 5-hour and weekly quotas exist, a smaller summary line such as `5h: 75% · 周: 40%` is added under the row.
 - Multiple distinct keys on one platform are numbered `#1`, `#2`.
 - Failed accounts are shown in red with a short reason and do not affect the other rows.
 - If rendering fails, the plugin falls back to a plain-text card.
@@ -156,7 +175,13 @@ flowchart LR
 | DeepSeek | `balance_infos[].total_balance` (prefers `CNY`) |
 | Zhipu AI | `data.availableBalance`, falling back to `balance` / `availBalance` |
 | ModelScope | `data.available_balance` |
+| Kimi | `data.available_balance`, falling back to `balance` / `available` |
+| MiniMax Token Plan | `model_remains[].current_interval_remaining_percent` / `current_weekly_remaining_percent` |
+| Ollama Cloud | `included.balance_usd` + `purchased.balance_usd`; legacy `included.session` / `included.weekly` `remaining_percent` |
+| 302.AI | `data.balance`, falling back to `available_balance` |
+| PPIO | `availableBalance` (unit: 1/10000 CNY, converted to `¥`) |
 
+- Kimi's balance API does not return a currency; the CN site is shown as `¥` and the global site as `$`.
 - Successes are reused within `cache_ttl`.
 - Authentication failures are not retried; timeouts, 429 and 5xx use exponential backoff.
 - Keys are masked before being shown, e.g. `sk-0123…cdef`.
@@ -181,14 +206,15 @@ flowchart LR
 <details>
 <summary><b>“未在 AstrBot 的模型供应商中找到可查询余额的配置”</b></summary>
 
-Add a DeepSeek, Zhipu AI or ModelScope provider in AstrBot's **Providers** page with an API
-key. Only these three platforms are supported.
+Add a DeepSeek, Zhipu AI, ModelScope, Kimi, MiniMax Token Plan, Ollama Cloud, 302.AI or PPIO
+provider in AstrBot's **Providers** page with an API key. Only the platforms in the
+supported-provider table above are recognized.
 </details>
 
 <details>
 <summary><b>Why are only some providers shown?</b></summary>
 
-- Unsupported platforms (OpenAI, Gemini, Ollama, …) are skipped.
+- Unsupported platforms (OpenAI, Gemini, local Ollama, …) are skipped.
 - Providers pointing at custom proxy hosts are skipped on purpose.
 - Providers sharing the same key and endpoint are de-duplicated.
 - Check the AstrBot log for the “skipped providers without a recognized balance endpoint” message.
@@ -214,6 +240,23 @@ same key, they refer to the same wallet and are shown once.
 
 ModelScope credits are called magicubes (魔粒), so the card shows available magicubes; other
 platforms show the account balance.
+</details>
+
+<details>
+<summary><b>Why is MiniMax missing?</b></summary>
+
+Only the MiniMax **Token Plan** subscription quota is supported, not the regular pay-as-you-go
+balance. Add a MiniMax Token Plan provider whose type/id contains `token_plan` or `token-plan`
+and use the subscription key (usually starting with `sk-cp-`). Regular MiniMax providers are
+skipped for safety.
+</details>
+
+<details>
+<summary><b>Why is Ollama missing?</b></summary>
+
+Only Ollama **Cloud** (`ollama.com`) is queried. Local Ollama has no balance endpoint, so
+providers pointing at `127.0.0.1:11434` are skipped. For cloud models, set the base URL to
+`https://ollama.com/v1` and enter an Ollama Cloud API key.
 </details>
 
 <details>

@@ -18,7 +18,12 @@ def format_report(results: list[AccountResult]) -> str:
         metric = account.spec.metric_display
         if result.balance is not None:
             balance = result.balance
-            if account.provider == "modelscope":
+            if balance.value_text:
+                label = balance.metric_text or metric
+                value = f"{label} {balance.value_text}"
+                if balance.secondary:
+                    value += f"（{balance.secondary}）"
+            elif account.provider == "modelscope":
                 value = f"{metric} {format_units(balance.available)}"
             else:
                 value = f"{metric} {format_money(balance.available, balance.currency)}"
@@ -39,7 +44,8 @@ def format_no_accounts() -> str:
             _DIVIDER,
             "未在 AstrBot 的「模型供应商」中找到可查询余额的配置。",
             "",
-            "自动支持：DeepSeek、智谱 AI、魔搭 ModelScope。",
+            "自动支持：DeepSeek、智谱 AI、魔搭 ModelScope、Kimi、MiniMax Token Plan、",
+            "Ollama Cloud、302.AI、PPIO。",
             "请先在 AstrBot 管理面板 → 服务提供商 中添加对应平台并填写 API Key，",
             "然后重新发送 /余额。",
         ]

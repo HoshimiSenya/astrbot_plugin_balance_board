@@ -19,7 +19,7 @@ from .errors import (
     UpstreamError,
 )
 from .models import BalanceSnapshot
-from .providers import PARSERS, ProviderSpec
+from .providers import PARSERS, ProviderSpec, kimi_currency
 from .security import sanitize_text
 
 
@@ -129,12 +129,18 @@ class BalanceClient:
             )
 
         parsed = PARSERS[account.provider](payload_dict)
+        currency = (
+            kimi_currency(account.base_url) if account.provider == "kimi" else parsed.currency
+        )
 
         return BalanceSnapshot(
             account=account,
             available=parsed.available,
-            currency=parsed.currency,
+            currency=currency,
             metric=parsed.metric,
+            value_text=parsed.value_text,
+            metric_text=parsed.metric_text,
+            secondary=parsed.secondary,
         )
 
     @staticmethod

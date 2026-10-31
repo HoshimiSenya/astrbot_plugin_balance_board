@@ -32,6 +32,29 @@ def _success(provider: str, base_url: str, label: str, amount: str, currency: st
     )
 
 
+def _quota(
+    provider: str,
+    base_url: str,
+    label: str,
+    value_text: str,
+    metric_text: str,
+    secondary: str = "",
+):
+    account = _account(provider, base_url, label)
+    return AccountResult(
+        account=account,
+        balance=BalanceSnapshot(
+            account=account,
+            available=Decimal("75"),
+            currency="%",
+            metric=metric_text,
+            value_text=value_text,
+            metric_text=metric_text,
+            secondary=secondary,
+        ),
+    )
+
+
 class FormattingTests(unittest.TestCase):
     def test_format_money(self) -> None:
         self.assertEqual(format_money(Decimal("1234.5"), "CNY"), "¥1,234.50")
@@ -66,6 +89,41 @@ class BuildRowsTests(unittest.TestCase):
         self.assertNotIn("总余额", row.value)
         self.assertNotIn("冻结", row.value)
 
+    def test_quota_row_shows_percentage_and_window_summary(self) -> None:
+        results = [
+            _quota(
+                "minimax_token_plan",
+                "https://api.minimaxi.com",
+                "MiniMax",
+                "75%",
+                "5h 剩余",
+                "5h: 75% · 周: 40%",
+            )
+        ]
+
+        row = build_rows(results)[0]
+
+        self.assertEqual(row.value, "75%")
+        self.assertEqual(row.metric, "5h 剩余")
+        self.assertEqual(row.extra, "5h: 75% · 周: 40%")
+
+    def test_single_quota_window_has_no_extra_line(self) -> None:
+        results = [
+            _quota(
+                "ollama",
+                "https://ollama.com",
+                "Ollama",
+                "80%",
+                "5h 剩余",
+            )
+        ]
+
+        row = build_rows(results)[0]
+
+        self.assertEqual(row.value, "80%")
+        self.assertEqual(row.metric, "5h 剩余")
+        self.assertEqual(row.extra, "")
+
     def test_failed_account_keeps_reason(self) -> None:
         account = _account("deepseek", "https://api.deepseek.com", "DeepSeek")
         results = [
@@ -95,6 +153,44 @@ class RenderTests(unittest.TestCase):
                 self.assertGreater(image.height, 200)
         finally:
             os.unlink(path)
+
+    def test_render_report_with_quota_window(self) -> None:
+        results = [
+            _quota(
+                "minimax_token_plan",
+                "https://api.minimaxi.com",
+                "MiniMax",
+                "75%",
+                "5h 剩余",
+                "5h: 75% · 周: 40%",
+            )
+        ]
+
+        path = render_report(results, now=0)
+        try:
+            self.assertTrue(os.path.exists(path))
+            with Image.open(path) as image:
+                self.assertEqual(image.format, "PNG")
+                self.assertEqual(image.width, 720)
+        finally:
+            os.unlink(path)
+
+    def test_plain_text_fallback_includes_quota_windows(self) -> None:
+        results = [
+            _quota(
+                "minimax_token_plan",
+                "https://api.minimaxi.com",
+                "MiniMax",
+                "75%",
+                "5h 剩余",
+                "5h: 75% · 周: 40%",
+            )
+        ]
+
+        text = format_report(results)
+
+        self.assertIn("5h 剩余 75%", text)
+        self.assertIn("5h: 75% · 周: 40%", text)
 
     def test_plain_text_fallback_has_no_frozen_amounts(self) -> None:
         results = [

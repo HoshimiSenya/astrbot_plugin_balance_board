@@ -22,6 +22,7 @@ CARD_PAD_X = 34
 CARD_RADIUS = 28
 HEADER_HEIGHT = 118
 ROW_HEIGHT = 82
+ROW_HEIGHT_EXTRA = 100
 FOOTER_HEIGHT = 40
 
 BG_TOP = (243, 246, 250)
@@ -37,6 +38,11 @@ PROVIDER_COLORS = {
     "deepseek": (77, 107, 254),
     "zhipu": (14, 116, 233),
     "modelscope": (255, 122, 0),
+    "kimi": (91, 101, 245),
+    "minimax_token_plan": (239, 68, 68),
+    "ollama": (17, 24, 39),
+    "302ai": (124, 58, 237),
+    "ppio": (16, 185, 129),
 }
 
 CURRENCY_SYMBOLS = {"CNY": "¥", "USD": "$", "EUR": "€", "HKD": "HK$", "JPY": "¥"}
@@ -53,6 +59,7 @@ class Row:
     metric: str
     color: tuple[int, int, int]
     detail: str = ""
+    extra: str = ""
     failed: bool = False
 
 
@@ -91,17 +98,23 @@ def build_rows(results: list[AccountResult]) -> list[Row]:
 
         if result.balance is not None:
             balance = result.balance
-            if balance.metric == "魔粒":
+            if balance.value_text:
+                value = balance.value_text
+                metric = balance.metric_text or account.spec.metric_display
+            elif balance.metric == "魔粒":
                 value = format_units(balance.available)
+                metric = account.spec.metric_display
             else:
                 value = format_money(balance.available, balance.currency)
+                metric = account.spec.metric_display
             rows.append(
                 Row(
                     label=account.label,
                     value=value,
-                    metric=account.spec.metric_display,
+                    metric=metric,
                     color=color,
                     detail=f"{account.spec.short_label} · {account.host}",
+                    extra=balance.secondary,
                 )
             )
             continue
@@ -196,7 +209,8 @@ def render_rows(
     """Draw *rows* into a PNG file and return its path."""
 
     subtitle = subtitle or f"共 {len(rows)} 个账号"
-    card_height = HEADER_HEIGHT + ROW_HEIGHT * len(rows) + FOOTER_HEIGHT
+    row_heights = [ROW_HEIGHT_EXTRA if row.extra else ROW_HEIGHT for row in rows]
+    card_height = HEADER_HEIGHT + sum(row_heights) + FOOTER_HEIGHT
     image_height = card_height + PAGE_PAD * 2
 
     image = _vertical_gradient((WIDTH, image_height))
@@ -237,8 +251,10 @@ def render_rows(
 
     y = divider_y
     for index, row in enumerate(rows):
+        row_height = row_heights[index]
         name_font = _font(23)
         detail_font = _font(13)
+        extra_font = _font(12)
         metric_font = _font(13)
 
         draw.rounded_rectangle(
@@ -260,6 +276,10 @@ def render_rows(
                 font=detail_font,
                 fill=DANGER if row.failed else MUTED,
             )
+
+        if row.extra:
+            extra = _ellipsize(draw, row.extra, extra_font, x1 - label_left)
+            draw.text((label_left, y + 66), extra, font=extra_font, fill=MUTED)
 
         metric_width = draw.textlength(row.metric, font=metric_font)
         draw.text((x1 - metric_width, y + 14), row.metric, font=metric_font, fill=MUTED)
@@ -284,8 +304,8 @@ def render_rows(
         )
 
         if index < len(rows) - 1:
-            draw.line((x0 + 22, y + ROW_HEIGHT, x1, y + ROW_HEIGHT), fill=LINE, width=1)
-        y += ROW_HEIGHT
+            draw.line((x0 + 22, y + row_height, x1, y + row_height), fill=LINE, width=1)
+        y += row_height
 
     footer = footer or "数据来自各平台官方余额接口，仅供参考"
     footer_font = _font(12)
