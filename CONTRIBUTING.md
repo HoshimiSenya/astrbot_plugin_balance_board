@@ -52,7 +52,7 @@ instance with the relevant adapter.
 | `src/render.py` | Pillow image rendering |
 | `src/format.py` | Plain-text fallback |
 | `src/security.py` | Key validation, masking and log sanitising |
-| `src/cache.py` | TTL cache |
+| `src/cache.py` | TTL cache and rendered-image cache |
 | `src/constants.py` | Version and plugin constants |
 | `src/errors.py` | User-facing error types |
 | `tests/` | Standard-library `unittest` suite |
@@ -67,7 +67,7 @@ instance with the relevant adapter.
 4. Add a colour to `PROVIDER_COLORS` in `src/render.py`.
 5. Add detection and parser tests in `tests/test_discovery.py` and
    `tests/test_providers.py`.
-6. Update the provider table in `README.md` and `README_EN.md`.
+6. Update the provider table in `README.md`.
 
 ## Coding guidelines
 

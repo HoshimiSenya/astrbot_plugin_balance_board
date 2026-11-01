@@ -1,18 +1,14 @@
 <div align="center">
 
-<img src="logo.png" width="120" alt="余额看板 Logo">
+<img src="https://cdn.jsdelivr.net/gh/HoshimiSenya/astrbot_plugin_balance_board@main/logo.png" width="120" alt="余额看板 Logo">
 
 # 余额看板
 
 **自动读取 AstrBot 模型供应商，一张图看完所有平台余额**
 
 [![AstrBot](https://img.shields.io/badge/AstrBot-%E2%89%A54.5-5865f2?style=flat-square)](https://github.com/AstrBotDevs/AstrBot)
-[![Version](https://img.shields.io/badge/version-1.1.0-22c55e?style=flat-square)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat-square)](https://www.python.org/)
-[![Platform](https://img.shields.io/badge/platform-aiocqhttp%20%7C%20qq__official-12b7f5?style=flat-square)](#-支持平台)
 [![License](https://img.shields.io/badge/license-MIT-3b82f6?style=flat-square)](LICENSE)
-
-[简体中文](README.md) · [English](README_EN.md)
 
 </div>
 
@@ -31,7 +27,7 @@
 - 💎 **平台差异处理**：DeepSeek、智谱、Kimi、302.AI、PPIO、Ollama Cloud 显示账户余额，魔搭显示可用魔粒，MiniMax Token Plan 显示 5 小时 / 周剩余额度
 - 📊 **额度窗口**：MiniMax Token Plan 与 Ollama Cloud 旧版套餐支持 5 小时 / 周剩余百分比，双窗口时在行内追加汇总行
 - 🛡 **安全识别**：仅当 Base URL 指向平台官方域名时才查询，自定义 OpenAI 兼容代理会被跳过，避免把 Key 发给非预期地址
-- ⚡ **并发 + 缓存 + 重试**：多账号并发请求，TTL 缓存复用结果，超时 / 429 / 5xx 自动退避重试
+- ⚡ **并发 + 缓存 + 重试**：多账号并发请求，TTL 缓存复用结果，结果未变化时直接复用上次渲染的图片，超时 / 429 / 5xx 自动退避重试
 - 🧠 **隐私优先**：Key 只发往对应平台，消息与日志中始终脱敏
 - 📱 **双平台适配**：原生支持 `aiocqhttp`（OneBot v11）与 `qq_official`（QQ 官方机器人）
 - 🧩 **零外部服务**：插件直接调用各平台公开接口，不需要自建后端
@@ -141,6 +137,7 @@ AstrBot 默认命令前缀是 `/`，如果你修改过唤醒前缀，请以实�
 - 同时存在 5 小时和周额度时，行下方会追加一行 `5h: 75% · 周: 40%` 汇总。
 - 同一平台有多个不同 Key 时会自动编号为 `#1`、`#2`。
 - 查询失败的账号会以红色「查询失败」显示在图片中，并附上简短原因，不影响其他账号。
+- 图片底部标注这批数据的取数时间；结果与上次完全一致时会直接复用上次的图片。
 - 图片渲染失败时会自动回退为纯文本结果。
 
 ## ⚙️ 插件配置
@@ -150,6 +147,7 @@ AstrBot 默认命令前缀是 `/`，如果你修改过唤醒前缀，请以实�
 | 配置项 | 默认值 | 说明 |
 |---|---|---|
 | `cache_ttl` | `60` | 查询缓存时间（秒），`0` 表示关闭 |
+| `image_cache` | `true` | 查询结果与上次完全相同时复用上次渲染的图片，省去重复渲染；关闭后每次重新渲染 |
 | `user_cooldown` | `5` | 单用户查询冷却（秒），`0` 表示关闭 |
 | `request_timeout` | `10` | 单个平台请求超时（秒） |
 | `proxy` | 空 | 可选 HTTP 代理，例如 `http://127.0.0.1:7890` |
@@ -173,8 +171,11 @@ flowchart LR
     D --> E[按 Key + 地址去重]
     E --> F[并发请求各平台余额接口]
     F --> G[解析并归一化结果]
-    G --> H[渲染 PNG 看板]
-    H --> I[发送图片]
+    G --> H{结果与上次相同？}
+    H -- 是 --> I[复用上次渲染的 PNG]
+    H -- 否 --> J[渲染 PNG 看板并缓存]
+    I --> K[发送图片]
+    J --> K
 ```
 
 | 平台 | 读取字段 |
@@ -190,8 +191,19 @@ flowchart LR
 
 - Kimi 余额接口不返回币种，国内站按 `¥`、国际站按 `$` 显示。
 - 同一账号在 `cache_ttl` 内复用结果，避免频繁请求平台接口。
+- 结果没有变化时复用上次渲染的图片，避免重复渲染。
 - 鉴权失败不会重试；超时、429 和 5xx 会按指数退避重试。
 - 所有 Key 在展示前都会脱敏，例如 `sk-0123…cdef`。
+
+### 图片缓存
+
+- 渲染前会把看板上全部可见内容（每一行的平台、金额、额度、失败原因，以及标题与页脚）算成一个指纹；
+  指纹与上次相同时直接复用上次生成的 PNG，不再调用 Pillow 绘图。
+- 因此当 `cache_ttl` 内的重复查询、或余额恰好没有变化时，图片几乎是瞬间返回的。
+- 命中图片缓存时，图片页脚的「更新于」仍显示这批数据的取数时间，不会因为复用而失真。
+- 内存中最多保留 16 张图片路径；被淘汰条目的文件由现有的临时文件清理逻辑（超过 1 小时）回收，
+  文件被删除或发送失败时会自动重新渲染。
+- 把插件配置中的 `image_cache` 设为 `false` 可关闭该机制，恢复为每次渲染。
 
 ## 🛡 安全与隐私
 
@@ -274,6 +286,15 @@ Key 是否相同；如果确实使用同一个 Key，它们本来就对应同一
 若仍然收不到消息，请检查 Pillow 是否已安装、服务器字体是否可用，以及适配器的图片发送权限。
 </details>
 
+<details>
+<summary><b>为什么图片上的「更新于」时间没有刷新？</b></summary>
+
+图片页脚的「更新于」显示的是**这批数据的取数时间**，不是本次回复的时间。如果使用的是
+`cache_ttl` 内的查询缓存或图片缓存（结果与上次完全一致），时间会保持不变——这恰好说明
+余额确实没有变化。想每次都重新取数并渲染，可把 `cache_ttl` 设为 `0`、把 `image_cache`
+设为 `false`。
+</details>
+
 ## 🧑‍💻 开发
 
 ```bash
@@ -301,7 +322,7 @@ astrbot_plugin_balance_board/
 ├── main.py                 # AstrBot 插件入口、供应商发现与并发查询
 ├── src/
 │   ├── accounts.py         # 从 AstrBot 供应商中提取 Key、地址归一化与去重
-│   ├── cache.py            # 内存 TTL 缓存
+│   ├── cache.py            # 内存 TTL 缓存与渲染图片缓存
 │   ├── client.py           # 统一 HTTP 客户端、重试与错误映射
 │   ├── constants.py        # 插件常量
 │   ├── errors.py           # 用户可读的错误类型
@@ -316,7 +337,6 @@ astrbot_plugin_balance_board/
 ├── metadata.yaml           # 插件元数据
 ├── requirements.txt
 ├── README.md
-├── README_EN.md
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 ├── SECURITY.md
