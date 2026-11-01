@@ -127,7 +127,7 @@ The provider list is re-read on every query, so newly added or removed providers
 
 <div align="center">
 
-![Rendered board](docs/preview.png)
+![Rendered board](https://cdn.jsdelivr.net/gh/HoshimiSenya/astrbot_plugin_balance_board@main/docs/preview.png)
 
 </div>
 
