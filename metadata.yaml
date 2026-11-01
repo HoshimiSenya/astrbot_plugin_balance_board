@@ -2,7 +2,7 @@ name: astrbot_plugin_balance_board
 display_name: 余额看板
 short_desc: 自动读取 AstrBot 模型供应商的 API Key，一键查询多个平台余额并渲染成清晰图片。
 desc: 自动读取 AstrBot 模型供应商的 API Key，查询所有已配置平台的余额并渲染成图片。
-version: v1.1.0
+version: v1.2.0
 author: 星见千夜
 repo: https://github.com/HoshimiSenya/astrbot_plugin_balance_board
 astrbot_version: ">=4.5.0,<5"

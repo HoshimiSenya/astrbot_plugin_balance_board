@@ -349,7 +349,7 @@ astrbot_plugin_balance_board/
 2. 更新 `CHANGELOG.md`。
 3. 提交并打标签：
    ```bash
-   git tag v1.1.0
+   git tag v1.2.0
    git push origin main --tags
    ```
 4. GitHub Actions 会自动创建 Release。
