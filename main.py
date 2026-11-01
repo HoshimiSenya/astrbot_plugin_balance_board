@@ -12,9 +12,9 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star
 
 from .src.accounts import Account, Discovery, discover_accounts
-from .src.cache import TTLCache
+from .src.cache import ImageCache, TTLCache
 from .src.client import BalanceClient
-from .src.constants import PLUGIN_DISPLAY_NAME
+from .src.constants import IMAGE_CACHE_SIZE, PLUGIN_DISPLAY_NAME
 from .src.errors import BalanceError
 from .src.format import (
     format_cooldown,
@@ -38,6 +38,9 @@ class BalanceBoardPlugin(Star):
             proxy=str(self.config.get("proxy", "") or ""),
         )
         self.cache = TTLCache(self._cfg_float("cache_ttl", 60.0))
+        self.image_cache = ImageCache(
+            IMAGE_CACHE_SIZE if self._cfg_bool("image_cache", True) else 0
+        )
         self._last_query: dict[str, float] = {}
 
     # ─────────────────────────── commands ───────────────────────────
@@ -71,7 +74,7 @@ class BalanceBoardPlugin(Star):
             return
 
         try:
-            image_path = await asyncio.to_thread(render_report, results)
+            image_path = await asyncio.to_thread(render_report, results, cache=self.image_cache)
         except Exception:
             logger.exception("[%s] 图片渲染失败，改为发送文本结果。", PLUGIN_DISPLAY_NAME)
             yield event.plain_result(format_report(results))
@@ -233,5 +236,18 @@ class BalanceBoardPlugin(Star):
         value = self.config.get(name, default)
         try:
             return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _cfg_bool(self, name: str, default: bool) -> bool:
+        value = self.config.get(name, default)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        if value is None:
+            return default
+        try:
+            return bool(int(value))
         except (TypeError, ValueError):
             return default

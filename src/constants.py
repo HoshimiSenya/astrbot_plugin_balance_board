@@ -11,4 +11,7 @@ REPO_URL = "https://github.com/HoshimiSenya/astrbot_plugin_balance_board"
 MAX_RESPONSE_BYTES = 256 * 1024
 MAX_ACCOUNTS = 30
 
+# How many rendered cards to remember for reuse; 0 disables the image cache.
+IMAGE_CACHE_SIZE = 16
+
 USER_AGENT = f"{PLUGIN_NAME}/{PLUGIN_VERSION} (+{REPO_URL})"

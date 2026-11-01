@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import tempfile
 import time
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .cache import ImageCache
 from .models import AccountResult
 from .providers import PROVIDER_ORDER
 
@@ -133,6 +135,28 @@ def build_rows(results: list[AccountResult]) -> list[Row]:
     return rows
 
 
+def render_signature(rows: list[Row], *, title: str, subtitle: str, footer: str) -> str:
+    """Return a stable fingerprint of everything that ends up in the image."""
+
+    parts = [title, subtitle, footer]
+    for row in rows:
+        red, green, blue = row.color
+        parts.append(
+            "\x1e".join(
+                (
+                    row.label,
+                    row.value,
+                    row.metric,
+                    f"{red},{green},{blue}",
+                    row.detail,
+                    row.extra,
+                    "failed" if row.failed else "ok",
+                )
+            )
+        )
+    return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+
+
 @lru_cache(maxsize=32)
 def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     if bold:
@@ -205,10 +229,24 @@ def render_rows(
     subtitle: str = "",
     footer: str = "",
     output: str | os.PathLike[str] | None = None,
+    cache: ImageCache | None = None,
 ) -> str:
-    """Draw *rows* into a PNG file and return its path."""
+    """Draw *rows* into a PNG file and return its path.
+
+    With a *cache* and no explicit *output*, an image whose content matches an
+    earlier render is returned as is, which skips the Pillow drawing entirely.
+    """
 
     subtitle = subtitle or f"共 {len(rows)} 个账号"
+    footer = footer or "数据来自各平台官方余额接口，仅供参考"
+
+    cache_key: str | None = None
+    if output is None and cache is not None:
+        cache_key = render_signature(rows, title=title, subtitle=subtitle, footer=footer)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
     row_heights = [ROW_HEIGHT_EXTRA if row.extra else ROW_HEIGHT for row in rows]
     card_height = HEADER_HEIGHT + sum(row_heights) + FOOTER_HEIGHT
     image_height = card_height + PAGE_PAD * 2
@@ -307,7 +345,6 @@ def render_rows(
             draw.line((x0 + 22, y + row_height, x1, y + row_height), fill=LINE, width=1)
         y += row_height
 
-    footer = footer or "数据来自各平台官方余额接口，仅供参考"
     footer_font = _font(12)
     footer_width = draw.textlength(footer, font=footer_font)
     draw.text(
@@ -326,6 +363,9 @@ def render_rows(
     path = Path(output)
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path, "PNG")
+
+    if cache_key is not None and cache is not None:
+        cache.set(cache_key, str(path))
     return str(path)
 
 
@@ -341,7 +381,35 @@ def _prune_temp_files(directory: Path, max_age: float = 3600.0) -> None:
             continue
 
 
-def render_report(results: list[AccountResult], *, now: float | None = None) -> str:
+def data_fetched_at(results: list[AccountResult], now: float | None = None) -> float:
+    """Return the moment the data shown on the card was fetched.
+
+    Reusing a cached image must not make the footer lie, so the timestamp comes
+    from the snapshots themselves: the newest ``fetched_at`` among them, which
+    TTL-cached successes keep from their original fetch. ``now`` is accepted for
+    tests and for callers that want to pin the timestamp explicitly.
+    """
+
+    if now is not None:
+        return now
+
+    stamps = [result.balance.fetched_at for result in results if result.balance is not None]
+    return max(stamps) if stamps else time.time()
+
+
+def report_footer(results: list[AccountResult], now: float | None = None) -> str:
+    """Build the card footer, which reports when the data was fetched."""
+
+    timestamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(data_fetched_at(results, now)))
+    return f"更新于 {timestamp} · 数据来自各平台官方余额接口"
+
+
+def render_report(
+    results: list[AccountResult],
+    *,
+    now: float | None = None,
+    cache: ImageCache | None = None,
+) -> str:
     """Render a full report (used by the plugin) and return the image path."""
 
     failed = sum(1 for result in results if not result.ok)
@@ -350,6 +418,9 @@ def render_report(results: list[AccountResult], *, now: float | None = None) -> 
     if failed:
         subtitle += f" · {failed} 个查询失败"
 
-    timestamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(now))
-    footer = f"更新于 {timestamp} · 数据来自各平台官方余额接口"
-    return render_rows(build_rows(results), subtitle=subtitle, footer=footer)
+    return render_rows(
+        build_rows(results),
+        subtitle=subtitle,
+        footer=report_footer(results, now),
+        cache=cache,
+    )

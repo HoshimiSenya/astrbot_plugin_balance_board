@@ -10,6 +10,12 @@
     },
     "hint": "同一账号在缓存时间内重复查询会直接使用上次结果，避免频繁请求平台接口；设为 0 可关闭缓存。插件会自动读取 AstrBot「模型供应商」中的 API Key，无需在此填写。"
   },
+  "image_cache": {
+    "description": "复用渲染图片",
+    "type": "bool",
+    "default": true,
+    "hint": "查询结果与上次完全相同时直接复用上次生成的图片，省去重复渲染的时间；关闭后每次都会重新渲染。"
+  },
   "user_cooldown": {
     "description": "单用户查询冷却（秒）",
     "type": "int",
