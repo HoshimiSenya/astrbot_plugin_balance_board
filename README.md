@@ -130,7 +130,11 @@ AstrBot 默认命令前缀是 `/`，如果你修改过唤醒前缀，请以实�
 
 ### 渲染效果
 
-<div align="center"><img src="docs/preview.png" width="620" alt="渲染效果"></div>
+<div align="center">
+
+![渲染效果](docs/preview.png)
+
+</div>
 
 - 每一行对应一个「钱包」：左侧色条代表平台，大字是平台中文名，小字是英文名与查询地址。
 - 金额右对齐；魔搭行显示 **可用魔粒**，其余平台显示 **余额**；MiniMax Token Plan 与 Ollama Cloud 旧版套餐显示 **5h 剩余** 或 **周剩余** 百分比。

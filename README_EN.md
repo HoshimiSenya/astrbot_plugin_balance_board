@@ -125,7 +125,11 @@ The provider list is re-read on every query, so newly added or removed providers
 
 ### Output
 
-<div align="center"><img src="docs/preview.png" width="620" alt="Rendered board"></div>
+<div align="center">
+
+![Rendered board](docs/preview.png)
+
+</div>
 
 - One row per wallet: the coloured bar marks the provider, the big text is its Chinese name, and the small line shows the English name and balance host.
 - Amounts are right-aligned; ModelScope rows show **available magicubes**, other money providers show **balance**, and MiniMax Token Plan / legacy Ollama Cloud plans show **5h remaining** or **weekly remaining** percentages.
