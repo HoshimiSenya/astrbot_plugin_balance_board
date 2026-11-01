@@ -13,8 +13,6 @@
 
 [简体中文](README.md) · English
 
-<img src="docs/preview.png" width="620" alt="Balance Board preview">
-
 </div>
 
 > Unofficial community plugin, not affiliated with DeepSeek, Zhipu AI, ModelScope, Kimi, MiniMax, Ollama, 302.AI or PPIO.  

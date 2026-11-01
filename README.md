@@ -14,8 +14,6 @@
 
 [简体中文](README.md) · [English](README_EN.md)
 
-<img src="docs/preview.png" width="620" alt="余额看板示例">
-
 </div>
 
 > 本项目是非官方社区插件，与 DeepSeek、智谱、魔搭、Kimi、MiniMax、Ollama、302.AI、PPIO 官方均无关。  
