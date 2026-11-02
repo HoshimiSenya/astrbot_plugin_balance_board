@@ -73,6 +73,10 @@ class BalanceBoardPlugin(Star):
             yield event.plain_result(format_internal_error())
             return
 
+        if not self._cfg_bool("render_image", True):
+            yield event.plain_result(format_report(results))
+            return
+
         try:
             image_path = await asyncio.to_thread(render_report, results, cache=self.image_cache)
         except Exception:

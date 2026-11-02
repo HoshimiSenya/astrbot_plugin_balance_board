@@ -25,7 +25,9 @@ CARD_RADIUS = 28
 HEADER_HEIGHT = 118
 ROW_HEIGHT = 82
 ROW_HEIGHT_EXTRA = 100
-FOOTER_HEIGHT = 40
+ROW_CONTENT_BOTTOM = 65
+ROW_EXTRA_CONTENT_BOTTOM = 79
+CARD_PAD_Y = 28
 
 BG_TOP = (243, 246, 250)
 BG_BOTTOM = (229, 234, 242)
@@ -135,10 +137,10 @@ def build_rows(results: list[AccountResult]) -> list[Row]:
     return rows
 
 
-def render_signature(rows: list[Row], *, title: str, subtitle: str, footer: str) -> str:
+def render_signature(rows: list[Row], *, title: str, subtitle: str) -> str:
     """Return a stable fingerprint of everything that ends up in the image."""
 
-    parts = [title, subtitle, footer]
+    parts = [title, subtitle]
     for row in rows:
         red, green, blue = row.color
         parts.append(
@@ -227,7 +229,6 @@ def render_rows(
     *,
     title: str = TITLE,
     subtitle: str = "",
-    footer: str = "",
     output: str | os.PathLike[str] | None = None,
     cache: ImageCache | None = None,
 ) -> str:
@@ -238,17 +239,20 @@ def render_rows(
     """
 
     subtitle = subtitle or f"共 {len(rows)} 个账号"
-    footer = footer or "数据来自各平台官方余额接口，仅供参考"
 
     cache_key: str | None = None
     if output is None and cache is not None:
-        cache_key = render_signature(rows, title=title, subtitle=subtitle, footer=footer)
+        cache_key = render_signature(rows, title=title, subtitle=subtitle)
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
     row_heights = [ROW_HEIGHT_EXTRA if row.extra else ROW_HEIGHT for row in rows]
-    card_height = HEADER_HEIGHT + sum(row_heights) + FOOTER_HEIGHT
+    if rows:
+        last_content_bottom = ROW_EXTRA_CONTENT_BOTTOM if rows[-1].extra else ROW_CONTENT_BOTTOM
+        card_height = HEADER_HEIGHT + sum(row_heights[:-1]) + last_content_bottom + CARD_PAD_Y
+    else:
+        card_height = HEADER_HEIGHT + CARD_PAD_Y
     image_height = card_height + PAGE_PAD * 2
 
     image = _vertical_gradient((WIDTH, image_height))
@@ -281,8 +285,11 @@ def render_rows(
     x0 = left + CARD_PAD_X
     x1 = right - CARD_PAD_X
 
-    draw.text((x0, top + 26), title, font=_font(34, bold=True), fill=INK)
-    draw.text((x0, top + 78), subtitle, font=_font(15), fill=MUTED)
+    title_font = _font(34, bold=True)
+    title_bbox = draw.textbbox((0, 0), title, font=title_font)
+    title_y = top + CARD_PAD_Y - title_bbox[1]
+    draw.text((x0, title_y), title, font=title_font, fill=INK)
+    draw.text((x0, title_y + 52), subtitle, font=_font(15), fill=MUTED)
 
     divider_y = top + HEADER_HEIGHT
     draw.line((x0, divider_y, x1, divider_y), fill=LINE, width=1)
@@ -345,15 +352,6 @@ def render_rows(
             draw.line((x0 + 22, y + row_height, x1, y + row_height), fill=LINE, width=1)
         y += row_height
 
-    footer_font = _font(12)
-    footer_width = draw.textlength(footer, font=footer_font)
-    draw.text(
-        ((WIDTH - footer_width) / 2, y + 13),
-        footer,
-        font=footer_font,
-        fill=MUTED,
-    )
-
     if output is None:
         fd, temp_name = tempfile.mkstemp(prefix=_TEMP_PREFIX, suffix=".png")
         os.close(fd)
@@ -381,33 +379,9 @@ def _prune_temp_files(directory: Path, max_age: float = 3600.0) -> None:
             continue
 
 
-def data_fetched_at(results: list[AccountResult], now: float | None = None) -> float:
-    """Return the moment the data shown on the card was fetched.
-
-    Reusing a cached image must not make the footer lie, so the timestamp comes
-    from the snapshots themselves: the newest ``fetched_at`` among them, which
-    TTL-cached successes keep from their original fetch. ``now`` is accepted for
-    tests and for callers that want to pin the timestamp explicitly.
-    """
-
-    if now is not None:
-        return now
-
-    stamps = [result.balance.fetched_at for result in results if result.balance is not None]
-    return max(stamps) if stamps else time.time()
-
-
-def report_footer(results: list[AccountResult], now: float | None = None) -> str:
-    """Build the card footer, which reports when the data was fetched."""
-
-    timestamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(data_fetched_at(results, now)))
-    return f"更新于 {timestamp} · 数据来自各平台官方余额接口"
-
-
 def render_report(
     results: list[AccountResult],
     *,
-    now: float | None = None,
     cache: ImageCache | None = None,
 ) -> str:
     """Render a full report (used by the plugin) and return the image path."""
@@ -421,6 +395,5 @@ def render_report(
     return render_rows(
         build_rows(results),
         subtitle=subtitle,
-        footer=report_footer(results, now),
         cache=cache,
     )

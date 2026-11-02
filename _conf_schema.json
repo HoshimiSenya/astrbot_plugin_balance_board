@@ -1,4 +1,10 @@
 {
+  "render_image": {
+    "description": "以图片形式发送",
+    "type": "bool",
+    "default": true,
+    "hint": "开启时把余额渲染成图片发送；关闭后直接以纯文本输出，不再调用 Pillow 渲染。"
+  },
   "cache_ttl": {
     "description": "查询缓存时间（秒）",
     "type": "int",
