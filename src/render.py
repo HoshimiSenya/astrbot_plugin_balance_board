@@ -19,18 +19,13 @@ from .providers import PROVIDER_ORDER
 
 TITLE = "余额看板"
 WIDTH = 720
-PAGE_PAD = 26
 CARD_PAD_X = 34
 CARD_RADIUS = 28
 HEADER_HEIGHT = 118
 ROW_HEIGHT = 82
 ROW_HEIGHT_EXTRA = 100
-FOOTER_HEIGHT = 40
 
-BG_TOP = (243, 246, 250)
-BG_BOTTOM = (229, 234, 242)
 CARD = (255, 255, 255)
-CARD_BORDER = (230, 234, 240)
 INK = (23, 26, 32)
 MUTED = (138, 145, 157)
 LINE = (238, 241, 246)
@@ -135,10 +130,10 @@ def build_rows(results: list[AccountResult]) -> list[Row]:
     return rows
 
 
-def render_signature(rows: list[Row], *, title: str, subtitle: str, footer: str) -> str:
+def render_signature(rows: list[Row], *, title: str, subtitle: str) -> str:
     """Return a stable fingerprint of everything that ends up in the image."""
 
-    parts = [title, subtitle, footer]
+    parts = [title, subtitle]
     for row in rows:
         red, green, blue = row.color
         parts.append(
@@ -208,76 +203,48 @@ def _ellipsize(
     return f"{trimmed}…"
 
 
-def _vertical_gradient(size: tuple[int, int]) -> Image.Image:
-    width, height = size
-    top, bottom = BG_TOP, BG_BOTTOM
-    strip = Image.new("RGB", (1, height))
-    pixels = strip.load()
-    assert pixels is not None
-    for y in range(height):
-        ratio = y / max(1, height - 1)
-        pixels[0, y] = tuple(
-            round(top[channel] + (bottom[channel] - top[channel]) * ratio) for channel in range(3)
-        )
-    return strip.resize((width, height))
-
-
 def render_rows(
     rows: list[Row],
     *,
     title: str = TITLE,
     subtitle: str = "",
-    footer: str = "",
     output: str | os.PathLike[str] | None = None,
     cache: ImageCache | None = None,
 ) -> str:
-    """Draw *rows* into a PNG file and return its path.
+    """Draw *rows* into a transparent, full-bleed PNG card and return its path.
 
     With a *cache* and no explicit *output*, an image whose content matches an
     earlier render is returned as is, which skips the Pillow drawing entirely.
     """
 
     subtitle = subtitle or f"共 {len(rows)} 个账号"
-    footer = footer or "数据来自各平台官方余额接口，仅供参考"
 
     cache_key: str | None = None
     if output is None and cache is not None:
-        cache_key = render_signature(rows, title=title, subtitle=subtitle, footer=footer)
+        cache_key = render_signature(rows, title=title, subtitle=subtitle)
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
     row_heights = [ROW_HEIGHT_EXTRA if row.extra else ROW_HEIGHT for row in rows]
-    card_height = HEADER_HEIGHT + sum(row_heights) + FOOTER_HEIGHT
-    image_height = card_height + PAGE_PAD * 2
+    image_height = HEADER_HEIGHT + sum(row_heights)
 
-    image = _vertical_gradient((WIDTH, image_height))
-
-    left = PAGE_PAD
-    top = PAGE_PAD
-    right = WIDTH - PAGE_PAD
-    bottom = image_height - PAGE_PAD
-
-    # Soft drop shadow behind the card.
-    shadow = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    shadow_draw = ImageDraw.Draw(shadow)
-    for offset, alpha in ((10, 14), (6, 20), (3, 28)):
-        shadow_draw.rounded_rectangle(
-            (left, top + offset, right, bottom + offset),
-            radius=CARD_RADIUS,
-            fill=(32, 42, 58, alpha),
-        )
-    image = Image.alpha_composite(image.convert("RGBA"), shadow).convert("RGB")
+    # The card fills the whole canvas; only the rounded corners stay transparent.
+    image = Image.new("RGBA", (WIDTH, image_height), (0, 0, 0, 0))
+    scale = 4
+    mask = Image.new("L", (WIDTH * scale, image_height * scale), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, WIDTH * scale - 1, image_height * scale - 1),
+        radius=CARD_RADIUS * scale,
+        fill=255,
+    )
+    mask = mask.resize((WIDTH, image_height), Image.LANCZOS)
+    image.paste(Image.new("RGBA", (WIDTH, image_height), (*CARD, 255)), (0, 0), mask)
     draw = ImageDraw.Draw(image)
 
-    draw.rounded_rectangle(
-        (left, top, right, bottom),
-        radius=CARD_RADIUS,
-        fill=CARD,
-        outline=CARD_BORDER,
-        width=1,
-    )
-
+    left = 0
+    top = 0
+    right = WIDTH
     x0 = left + CARD_PAD_X
     x1 = right - CARD_PAD_X
 
@@ -345,15 +312,6 @@ def render_rows(
             draw.line((x0 + 22, y + row_height, x1, y + row_height), fill=LINE, width=1)
         y += row_height
 
-    footer_font = _font(12)
-    footer_width = draw.textlength(footer, font=footer_font)
-    draw.text(
-        ((WIDTH - footer_width) / 2, y + 13),
-        footer,
-        font=footer_font,
-        fill=MUTED,
-    )
-
     if output is None:
         fd, temp_name = tempfile.mkstemp(prefix=_TEMP_PREFIX, suffix=".png")
         os.close(fd)
@@ -381,33 +339,9 @@ def _prune_temp_files(directory: Path, max_age: float = 3600.0) -> None:
             continue
 
 
-def data_fetched_at(results: list[AccountResult], now: float | None = None) -> float:
-    """Return the moment the data shown on the card was fetched.
-
-    Reusing a cached image must not make the footer lie, so the timestamp comes
-    from the snapshots themselves: the newest ``fetched_at`` among them, which
-    TTL-cached successes keep from their original fetch. ``now`` is accepted for
-    tests and for callers that want to pin the timestamp explicitly.
-    """
-
-    if now is not None:
-        return now
-
-    stamps = [result.balance.fetched_at for result in results if result.balance is not None]
-    return max(stamps) if stamps else time.time()
-
-
-def report_footer(results: list[AccountResult], now: float | None = None) -> str:
-    """Build the card footer, which reports when the data was fetched."""
-
-    timestamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(data_fetched_at(results, now)))
-    return f"更新于 {timestamp} · 数据来自各平台官方余额接口"
-
-
 def render_report(
     results: list[AccountResult],
     *,
-    now: float | None = None,
     cache: ImageCache | None = None,
 ) -> str:
     """Render a full report (used by the plugin) and return the image path."""
@@ -418,9 +352,4 @@ def render_report(
     if failed:
         subtitle += f" · {failed} 个查询失败"
 
-    return render_rows(
-        build_rows(results),
-        subtitle=subtitle,
-        footer=report_footer(results, now),
-        cache=cache,
-    )
+    return render_rows(build_rows(results), subtitle=subtitle, cache=cache)
