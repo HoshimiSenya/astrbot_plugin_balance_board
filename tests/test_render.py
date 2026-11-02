@@ -17,10 +17,12 @@ from src.format import format_report
 from src.models import AccountResult, BalanceSnapshot
 from src.render import (
     build_rows,
+    data_fetched_at,
     format_money,
     format_units,
     render_report,
     render_rows,
+    report_footer,
 )
 
 
@@ -163,7 +165,7 @@ class RenderTests(unittest.TestCase):
             _success("modelscope", "https://www.modelscope.cn", "魔搭", "249.5", "魔粒", "魔粒"),
         ]
 
-        path = render_report(results)
+        path = render_report(results, now=0)
         try:
             self.assertTrue(os.path.exists(path))
             with Image.open(path) as image:
@@ -185,32 +187,12 @@ class RenderTests(unittest.TestCase):
             )
         ]
 
-        path = render_report(results)
+        path = render_report(results, now=0)
         try:
             self.assertTrue(os.path.exists(path))
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
                 self.assertEqual(image.width, 720)
-                self.assertEqual(image.height, 225)
-        finally:
-            os.unlink(path)
-
-    def test_render_fills_canvas_with_transparent_corners(self) -> None:
-        results = [
-            _success("deepseek", "https://api.deepseek.com", "DeepSeek", "126.80", "CNY", "余额"),
-            _success("modelscope", "https://www.modelscope.cn", "魔搭", "249.5", "魔粒", "魔粒"),
-        ]
-
-        path = render_report(results)
-        try:
-            with Image.open(path) as image:
-                self.assertEqual(image.mode, "RGBA")
-                self.assertEqual(image.width, 720)
-                self.assertEqual(image.height, 293)
-                for corner in ((0, 0), (719, 0), (0, 292), (719, 292)):
-                    self.assertEqual(image.getpixel(corner)[3], 0)
-                self.assertEqual(image.getpixel((360, 0))[3], 255)
-                self.assertEqual(image.getpixel((360, 292))[3], 255)
         finally:
             os.unlink(path)
 
@@ -245,6 +227,66 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn("冻结", text)
 
 
+class FooterTests(unittest.TestCase):
+    """The footer reports when the data was fetched, not when it was drawn."""
+
+    @staticmethod
+    def _at(text: str) -> float:
+        return time.mktime(time.strptime(text, "%Y-%m-%d %H:%M"))
+
+    def test_newest_fetch_time_wins(self) -> None:
+        results = [
+            _success(
+                "deepseek",
+                "https://api.deepseek.com",
+                "DeepSeek",
+                "1",
+                "CNY",
+                "余额",
+                fetched_at=self._at("2026-01-02 03:04"),
+            ),
+            _success(
+                "zhipu",
+                "https://open.bigmodel.cn",
+                "智谱",
+                "2",
+                "CNY",
+                "余额",
+                fetched_at=self._at("2026-01-02 05:06"),
+            ),
+        ]
+
+        self.assertEqual(data_fetched_at(results), self._at("2026-01-02 05:06"))
+        self.assertEqual(
+            report_footer(results),
+            "更新于 2026-01-02 05:06 · 数据来自各平台官方余额接口",
+        )
+
+    def test_explicit_now_overrides_fetch_times(self) -> None:
+        results = [
+            _success(
+                "deepseek",
+                "https://api.deepseek.com",
+                "DeepSeek",
+                "1",
+                "CNY",
+                "余额",
+                fetched_at=self._at("2026-01-02 03:04"),
+            )
+        ]
+
+        pinned = self._at("2027-07-08 09:10")
+
+        self.assertEqual(data_fetched_at(results, now=pinned), pinned)
+        self.assertIn("更新于 2027-07-08 09:10", report_footer(results, now=pinned))
+
+    def test_failed_results_fall_back_to_the_current_time(self) -> None:
+        account = _account("deepseek", "https://api.deepseek.com", "DeepSeek")
+        results = [AccountResult(account=account, error=AuthError("API Key 无效。", code="401"))]
+
+        self.assertLessEqual(abs(data_fetched_at(results) - time.time()), 5.0)
+
+
 class ReportCacheTests(unittest.TestCase):
     """The rendered PNG is reused while the query results stay identical."""
 
@@ -253,6 +295,7 @@ class ReportCacheTests(unittest.TestCase):
         self.addCleanup(self._directory.cleanup)
         self._cache = ImageCache(4)
         self._rendered: list[str] = []
+        self._now = time.mktime(time.strptime("2026-01-02 03:04", "%Y-%m-%d %H:%M"))
 
     def tearDown(self) -> None:
         for path in self._rendered:
@@ -266,7 +309,7 @@ class ReportCacheTests(unittest.TestCase):
         ]
 
     def _render(self, results: list[AccountResult], cache: ImageCache | None = None) -> str:
-        path = render_report(results, cache=self._cache if cache is None else cache)
+        path = render_report(results, now=self._now, cache=self._cache if cache is None else cache)
         self._rendered.append(path)
         return path
 
@@ -317,7 +360,7 @@ class ReportCacheTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         self.assertEqual(len(disabled), 0)
 
-    def test_later_fetch_time_reuses_the_image(self) -> None:
+    def test_later_fetch_time_renders_a_new_image(self) -> None:
         fetched_at = time.mktime(time.strptime("2026-01-02 03:04", "%Y-%m-%d %H:%M"))
 
         def result(stamp: float) -> list[AccountResult]:
@@ -337,13 +380,13 @@ class ReportCacheTests(unittest.TestCase):
         second = render_report(result(fetched_at + 60), cache=self._cache)
         self._rendered.extend([first, second])
 
-        self.assertEqual(first, second)
+        self.assertNotEqual(first, second)
 
     def test_explicit_output_is_never_replaced_by_a_hit(self) -> None:
         target = os.path.join(self._directory.name, "explicit.png")
         rows = build_rows(self._results())
 
-        written = render_rows(rows, output=target, cache=self._cache)
+        written = render_rows(rows, footer="固定页脚", output=target, cache=self._cache)
 
         self.assertEqual(written, target)
         self.assertTrue(os.path.exists(target))

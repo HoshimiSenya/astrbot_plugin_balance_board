@@ -87,7 +87,7 @@ feat: discover keys from a new provider config shape
 fix: dedupe equivalent balance endpoints with trailing paths
 docs: update provider key links
 test: cover modelscope available balance
-chore: polish rendered card layout
+chore: polish rendered card footer
 ```
 
 ## Pull requests
