@@ -224,6 +224,16 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn("总余额", text)
         self.assertNotIn("冻结", text)
 
+    def test_plain_text_fallback_has_no_disclaimer(self) -> None:
+        results = [
+            _success("deepseek", "https://api.deepseek.com", "DeepSeek", "126.80", "CNY", "余额"),
+        ]
+
+        lines = format_report(results).splitlines()
+
+        self.assertEqual(lines[-1], "━━━━━━━━━━━━━━━")
+        self.assertNotIn("仅供参考", "\n".join(lines))
+
 
 class ReportCacheTests(unittest.TestCase):
     """The rendered PNG is reused while the query results stay identical."""

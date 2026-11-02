@@ -33,7 +33,6 @@ def format_report(results: list[AccountResult]) -> str:
             lines.append(f"{account.label}：查询失败（{message}）")
 
     lines.append(_DIVIDER)
-    lines.append("数据来自各平台官方余额接口，仅供参考。")
     return "\n".join(lines)
 
 
