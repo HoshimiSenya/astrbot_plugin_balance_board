@@ -191,6 +191,7 @@ class RenderTests(unittest.TestCase):
             with Image.open(path) as image:
                 self.assertEqual(image.format, "PNG")
                 self.assertEqual(image.width, 720)
+                self.assertEqual(image.height, 225)
         finally:
             os.unlink(path)
 
@@ -205,11 +206,11 @@ class RenderTests(unittest.TestCase):
             with Image.open(path) as image:
                 self.assertEqual(image.mode, "RGBA")
                 self.assertEqual(image.width, 720)
-                self.assertEqual(image.height, 282)
-                for corner in ((0, 0), (719, 0), (0, 281), (719, 281)):
+                self.assertEqual(image.height, 293)
+                for corner in ((0, 0), (719, 0), (0, 292), (719, 292)):
                     self.assertEqual(image.getpixel(corner)[3], 0)
                 self.assertEqual(image.getpixel((360, 0))[3], 255)
-                self.assertEqual(image.getpixel((360, 281))[3], 255)
+                self.assertEqual(image.getpixel((360, 292))[3], 255)
         finally:
             os.unlink(path)
 

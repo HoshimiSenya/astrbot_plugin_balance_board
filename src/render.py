@@ -20,10 +20,13 @@ from .providers import PROVIDER_ORDER
 TITLE = "余额看板"
 WIDTH = 720
 CARD_PAD_X = 34
+CARD_PAD_Y = 28
 CARD_RADIUS = 28
 HEADER_HEIGHT = 118
 ROW_HEIGHT = 82
 ROW_HEIGHT_EXTRA = 100
+ROW_CONTENT_BOTTOM = 65
+ROW_EXTRA_CONTENT_BOTTOM = 79
 
 CARD = (255, 255, 255)
 INK = (23, 26, 32)
@@ -227,7 +230,11 @@ def render_rows(
             return cached
 
     row_heights = [ROW_HEIGHT_EXTRA if row.extra else ROW_HEIGHT for row in rows]
-    image_height = HEADER_HEIGHT + sum(row_heights)
+    if rows:
+        last_content_bottom = ROW_EXTRA_CONTENT_BOTTOM if rows[-1].extra else ROW_CONTENT_BOTTOM
+        image_height = HEADER_HEIGHT + sum(row_heights[:-1]) + last_content_bottom + CARD_PAD_Y
+    else:
+        image_height = HEADER_HEIGHT + CARD_PAD_Y
 
     # The card fills the whole canvas; only the rounded corners stay transparent.
     image = Image.new("RGBA", (WIDTH, image_height), (0, 0, 0, 0))
@@ -248,8 +255,11 @@ def render_rows(
     x0 = left + CARD_PAD_X
     x1 = right - CARD_PAD_X
 
-    draw.text((x0, top + 26), title, font=_font(34, bold=True), fill=INK)
-    draw.text((x0, top + 78), subtitle, font=_font(15), fill=MUTED)
+    title_font = _font(34, bold=True)
+    title_bbox = draw.textbbox((0, 0), title, font=title_font)
+    title_y = top + CARD_PAD_Y - title_bbox[1]
+    draw.text((x0, title_y), title, font=title_font, fill=INK)
+    draw.text((x0, title_y + 52), subtitle, font=_font(15), fill=MUTED)
 
     divider_y = top + HEADER_HEIGHT
     draw.line((x0, divider_y, x1, divider_y), fill=LINE, width=1)
