@@ -128,7 +128,7 @@ AstrBot 默认命令前缀是 `/`，如果你修改过唤醒前缀，请以实�
 
 <div align="center">
 
-![渲染效果](https://cdn.jsdelivr.net/gh/HoshimiSenya/astrbot_plugin_balance_board@0880325/docs/preview.png)
+![渲染效果](https://raw.githubusercontent.com/HoshimiSenya/astrbot_plugin_balance_board/main/docs/preview.png)
 
 </div>
 
